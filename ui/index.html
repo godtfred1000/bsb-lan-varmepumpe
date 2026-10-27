@@ -1,0 +1,15 @@
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BSB-LAN · Oppsett</title><link rel="stylesheet" href="/setup/setup.css"><script src="/setup/setup.js" defer></script></head>
+<body><main><nav><a href="/">← BSB-LAN</a><select id="language" aria-label="Language"><option value="no">Norsk</option><option value="de">🇩🇪 Deutsch</option><option value="en">🇬🇧 English</option></select></nav>
+<header><span class="eyebrow">BSB-LAN · RASPBERRY PI</span><h1 data-t="title"></h1><p data-t="intro"></p></header>
+<section id="login" class="panel"><h2 data-t="unlock"></h2><p data-t="keyHelp"></p><label><span data-t="key"></span><input id="setup-key" type="password" autocomplete="off" spellcheck="false"></label><button type="button" id="connect" data-t="connect"></button></section>
+<form id="settings" hidden><section class="panel"><h2 data-t="network"></h2><div class="fields">
+<label><span data-t="server"></span><input name="server_host" required placeholder="192.168.1.50" autocomplete="off" spellcheck="false"></label>
+<label><span data-t="bsb"></span><input name="bsb_host" required placeholder="192.168.1.170" autocomplete="off" spellcheck="false"></label>
+<label><span data-t="port"></span><input name="bsb_port" type="number" min="1" max="65535" required value="80"></label>
+<label><span data-t="timezone"></span><input name="timezone" required value="Europe/Oslo" autocomplete="off"></label>
+<label><span data-t="username"></span><input name="bsb_username" autocomplete="off" maxlength="256"></label>
+<label><span data-t="password"></span><input name="bsb_password" type="password" autocomplete="new-password" maxlength="256"></label>
+</div><p class="hint" data-t="addressHelp"></p></section>
+<section class="panel"><h2 data-t="services"></h2><div id="flags" class="checks"></div><p class="hint" data-t="controlHelp"></p><p class="hint" data-t="summerHelp"></p></section>
+<section class="panel"><h2>Shelly H&amp;T</h2><p data-t="shellyHelp"></p><p id="webhook" class="hint" hidden></p></section>
+<div class="save"><button type="submit" id="save" data-t="save"></button><a href="/" data-t="open"></a></div></form><p id="message" role="status" aria-live="polite"></p><footer>Bygget av Hansen IT Support</footer></main></body></html>

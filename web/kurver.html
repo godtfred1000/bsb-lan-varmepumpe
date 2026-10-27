@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Temperaturkurver</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f5f6;margin:0;padding:16px;color:#222}
+.wrap{max-width:900px;margin:auto}
+h2{text-align:center}
+.controls{text-align:center;margin:15px 0}
+button{border:0;border-radius:10px;padding:11px 16px;margin:3px;font-size:15px}
+button.active{background:#c8e6c9;font-weight:bold;outline:2px solid #2e7d32}
+.card{background:white;border-radius:14px;padding:10px;margin-top:15px}
+canvas{width:100%;height:420px}
+.back{display:block;text-align:center;margin:18px 0;text-decoration:none;color:#222}
+</style>
+<script src="undersider-sprak.js?v=20261014-thai2"></script>
+<script src="/client.js" defer></script></head>
+<body>
+<div class="wrap">
+<h2>📈 Temperaturkurver</h2>
+
+<div class="controls">
+<button onclick="showHours(6,this)">6 timer</button>
+<button class="active" onclick="showHours(24,this)">24 timer</button>
+<button onclick="showHours(168,this)">7 dager</button><button onclick="showHours(720,this)">30 dager</button>
+</div>
+
+<div class="card">
+<canvas id="chart"></canvas>
+</div>
+
+<a class="back" href="/">← Tilbake til varmepumpa</a>
+</div>
+
+<script>
+let allData=[];
+
+function val(line,name){
+ const m=line.match(new RegExp(name+":\\s*(-?[0-9.]+)"));
+ return m?parseFloat(m[1]):null;
+}
+
+function parseLog(txt){
+ return txt.trim().split("\n").map(line=>{
+   const t=line.match(/Tidspunkt:\s*(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)/);
+   if(!t)return null;
+   return {
+     time:new Date(t[1].replace(" ","T")),
+     tur:val(line,"Turtemp"),
+     retur:val(line,"Returtemp"),
+     ute:val(line,"Utetemperatur"),
+     tank:val(line,"Tanktemperatur"),
+      stue:val(line,"Stuetemperatur")
+   };
+ }).filter(x=>x);
+}
+
+function showHours(hours,btn){
+ document.querySelectorAll(".controls button").forEach(b=>b.classList.remove("active"));
+ if(btn)btn.classList.add("active");
+
+ const newest=allData.length?allData[allData.length-1].time:new Date();
+ const from=new Date(newest.getTime()-hours*3600000);
+ draw(allData.filter(x=>x.time>=from),hours);
+}
+
+function draw(data,hours){
+ const c=document.getElementById("chart");
+ const dpr=window.devicePixelRatio||1;
+ const w=c.clientWidth;
+ const h=420;
+ c.width=w*dpr;c.height=h*dpr;
+ const ctx=c.getContext("2d");
+ ctx.scale(dpr,dpr);
+ ctx.clearRect(0,0,w,h);
+
+ if(data.length<2){
+   ctx.font="16px Arial";
+   ctx.fillText("Ikke nok loggdata ennå.",20,40);
+   return;
+ }
+
+ const pad={l:48,r:15,t:35,b:45};
+ const pw=w-pad.l-pad.r, ph=h-pad.t-pad.b;
+
+ const values=[];
+ data.forEach(x=>["tur","retur","ute","tank","stue"].forEach(k=>{
+   if(Number.isFinite(x[k]))values.push(x[k]);
+ }));
+ let min=Math.floor(values.reduce((a,b)=>Math.min(a,b),Infinity)-2);
+ let max=Math.ceil(values.reduce((a,b)=>Math.max(a,b),-Infinity)+2);
+ if(max<=min)max=min+1;
+
+ ctx.strokeStyle="#ddd";
+ ctx.fillStyle="#555";
+ ctx.font="12px Arial";
+ ctx.lineWidth=1;
+
+ for(let i=0;i<=5;i++){
+   const y=pad.t+ph*i/5;
+   const v=max-(max-min)*i/5;
+   ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
+   ctx.fillText(v.toFixed(0)+"°",5,y+4);
+ }
+
+ const first=data[0].time.getTime();
+ const last=data[data.length-1].time.getTime();
+ const span=Math.max(1,last-first);
+if(hours>24){
+    let lastDateLabel="";
+  let d=new Date(first); d.setHours(0,0,0,0); d.setDate(d.getDate()+1);
+  while(d.getTime()<last){
+    const x=pad.l+(d.getTime()-first)/span*pw;
+    ctx.strokeStyle="#bbb"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,h-pad.b); ctx.stroke();
+    ctx.fillStyle="#555"; ctx.textAlign="center"; ctx.fillText(String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0"),x,h-15);
+    d.setDate(d.getDate()+1);
+  }
+}
+
+ const series=[
+   ["tur","Tur","#e53935"],
+   ["retur","Retur","#1e88e5"],
+   ["ute","Ute","#43a047"],
+   ["tank","Tank","#fb8c00"],
+    ["stue","Stue","#9c27b0"]
+ ];
+
+ series.forEach(([key,label,color])=>{
+   ctx.strokeStyle=color;
+   ctx.lineWidth=2;
+   ctx.beginPath();
+   let started=false;
+   data.forEach(p=>{
+     if(!Number.isFinite(p[key]))return;
+     const x=pad.l+(p.time.getTime()-first)/span*pw;
+     const y=pad.t+(max-p[key])/(max-min)*ph;
+     if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y);
+   });
+   ctx.stroke();
+ });
+
+ ctx.font="13px Arial";
+ let lx=pad.l;
+ series.forEach(([key,label,color])=>{
+   ctx.fillStyle=color;
+   ctx.fillRect(lx,8,16,4);
+   ctx.fillStyle="#222";
+   ctx.fillText(label,lx+21,14);
+   lx+=75;
+ });
+
+ ctx.fillStyle="#555"; ctx.textAlign="center";
+  if(hours<=24){ const marks=4;
+ for(let i=0;i<=marks;i++){
+   const idx=Math.round((data.length-1)*i/marks);
+   const p=data[idx];
+   const x=pad.l+pw*i/marks;
+   const s=hours>24?p.time.toLocaleDateString("no-NO",{day:"2-digit",month:"2-digit"}):p.time.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit"});
+   ctx.fillText(s,Math.max(2,x-18),h-15);
+ }
+  }
+}
+
+fetch("bsb.log?"+Date.now())
+ .then(r=>r.text())
+ .then(t=>{
+   allData=parseLog(t);
+   showHours(24,document.querySelectorAll(".controls button")[1]);
+ })
+ .catch(()=>{
+   const ctx=document.getElementById("chart").getContext("2d");
+   ctx.fillText("Kunne ikke lese loggen.",20,40);
+ });
+
+
+</script>
+<script>
+(() => {
+ const canvas=document.getElementById('chart'), H=3600000;
+ let end=null, duration=24*H, pointers=new Map(), gesture=null;
+ const latest=()=>allData.length?+allData[allData.length-1].time:Date.now();
+ const earliest=()=>allData.length?+allData[0].time:latest()-duration;
+ const bar=document.createElement('div'); bar.className='navigation'; bar.style='text-align:center;margin:12px 0';
+ bar.innerHTML='<button type="button" data-action="prev">←</button><button type="button" data-action="in">＋</button><button type="button" data-action="out">−</button><button type="button" data-action="next">→</button><button type="button" data-action="now"></button><div class="range" style="font-size:13px;margin:8px"></div><div class="hint" style="font-size:13px;color:#555"></div>';
+ document.querySelector('.card').after(bar);
+ const words={no:['Nå','Dra grafen sidelengs. Zoom med + / −, musehjul eller to fingre.'],de:['Jetzt','Grafik seitlich ziehen. Mit + / −, Mausrad oder zwei Fingern zoomen.'],en:['Now','Drag sideways. Zoom with + / −, mouse wheel or two fingers.']};
+ function language(){let l=document.documentElement.lang||'no'; try {l=localStorage.getItem('varmepumpe_sprak')||l;}catch(_){} return words[l]?l:'no';}
+ function render(){
+  if(!allData.length)return;
+  duration=Math.max(10*60000,Math.min(duration,Math.max(10*60000,latest()-earliest())));
+  if(end!==null)end=Math.max(Math.min(earliest()+duration,latest()),Math.min(end,latest()));
+  const right=end===null?latest():end, left=right-duration;
+  draw(allData.filter(p=>+p.time>=left&&+p.time<=right),duration/H);
+  const l=language(), text=words[l];
+  bar.querySelector('[data-action="now"]').textContent=text[0];
+  bar.querySelector('.hint').textContent=text[1];
+  bar.querySelector('.range').textContent=new Date(left).toLocaleString(l==='no'?'nb-NO':l)+' – '+new Date(right).toLocaleString(l==='no'?'nb-NO':l);
+ }
+ showHours=function(hours,btn){
+  document.querySelectorAll('.controls button').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  duration=hours*H;end=null;render();
+ };
+ function move(delta){end=(end===null?latest():end)+delta;render();}
+ function zoom(factor,anchor=.5){
+  const right=end===null?latest():end, old=duration;
+  duration=Math.max(10*60000,Math.min(old*factor,Math.max(10*60000,latest()-earliest())));
+  end=right-(old-duration)*(1-anchor);render();
+ }
+ bar.addEventListener('click',e=>{
+  const a=e.target.dataset.action;
+  if(a==='prev')move(-duration*.75);
+  if(a==='next')move(duration*.75);
+  if(a==='in')zoom(.5);
+  if(a==='out')zoom(2);
+  if(a==='now'){end=null;render();}
+ });
+ canvas.style.touchAction='pan-y';canvas.style.cursor='grab';
+ function resetGesture(){
+  const pts=[...pointers.values()];
+  gesture={end:end===null?latest():end,duration,x:pts.length?pts.reduce((s,p)=>s+p.x,0)/pts.length:0,distance:pts.length===2?Math.abs(pts[0].x-pts[1].x):0};
+ }
+ canvas.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  pointers.set(e.pointerId,{x:e.clientX});canvas.setPointerCapture(e.pointerId);resetGesture();
+ });
+ canvas.addEventListener('pointermove',e=>{
+  if(!pointers.has(e.pointerId))return;
+  pointers.set(e.pointerId,{x:e.clientX});
+  const pts=[...pointers.values()],width=Math.max(1,canvas.clientWidth-63);
+  const x=pts.reduce((s,p)=>s+p.x,0)/pts.length;
+  if(pts.length===2&&gesture.distance>5){
+   const distance=Math.abs(pts[0].x-pts[1].x);
+   duration=Math.max(10*60000,Math.min(gesture.duration*gesture.distance/Math.max(5,distance),Math.max(10*60000,latest()-earliest())));
+   end=gesture.end-(gesture.duration-duration)/2-(x-gesture.x)/width*duration;
+  }else end=gesture.end-(x-gesture.x)/width*duration;
+  render();
+ });
+ function release(e){pointers.delete(e.pointerId);resetGesture();}
+ canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
+ canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(Math.exp(Math.max(-.4,Math.min(.4,e.deltaY*.002))),Math.max(0,Math.min(1,(e.clientX-canvas.getBoundingClientRect().left-48)/(canvas.clientWidth-63))));},{passive:false});
+ window.addEventListener('resize',render);
+ new MutationObserver(()=>{if(allData.length)render();}).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
+ window.addEventListener('storage',render);
+ window.addEventListener('pagehide',()=>pointers.clear());
+})();
+</script>
+<footer style="text-align:center;padding:18px;font:12px system-ui;color:#667">Bygget av Hansen IT Support</footer></body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<title>Varmepumpe – Feilhistorikk</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:15px}
+a{display:block;background:#2e7d32;color:white;text-decoration:none;text-align:center;font-size:20px;font-weight:bold;padding:15px;border-radius:12px;margin-bottom:15px;position:sticky;top:5px}
+pre{background:white;padding:12px;border-radius:12px;white-space:pre-wrap;font-size:13px}
+</style>
+<script src="undersider-sprak.js"></script><script src="/client.js" defer></script></head>
+<body>
+<a href="index.html">← Tilbake til Varmepumpe</a>
+<pre id="logg">Laster feilhistorikk...</pre>
+<script>
+fetch('feil.log?'+Date.now())
+.then(r=>r.text())
+.then(t=>{
+ document.getElementById('logg').textContent=t.trim() ? t : 'Ingen registrerte feil.';
+ setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),100);
+});
+</script>
+<footer style="text-align:center;padding:18px;font:12px system-ui;color:#667">Bygget av Hansen IT Support</footer></body>
+</html>

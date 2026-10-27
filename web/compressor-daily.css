@@ -1,0 +1,15 @@
+#compressor-daily{margin:6px 0;background:#fff;border-radius:12px;padding:6px 9px;box-sizing:border-box}
+#compressor-daily h2{font-size:13px;margin:0 0 3px;text-align:center}
+#compressor-daily .daily-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 5px}
+#compressor-daily .daily-card{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:4px 7px;background:#f3f4f6;border-radius:8px;min-width:0}
+#compressor-daily .daily-card span{font-size:11px;line-height:1.15;overflow-wrap:anywhere;min-width:0}
+#compressor-daily .daily-card strong{font-size:19px;line-height:1.05;white-space:nowrap;font-variant-numeric:tabular-nums}
+#compressor-daily #daily-average{font-size:16px}
+#compressor-daily details{margin-top:3px}
+#compressor-daily summary{font-size:11px;color:#666;cursor:pointer;padding:1px 0}
+#compressor-daily .daily-note{font-size:11px;color:#555;line-height:1.4;margin:5px 0 0}
+#compressor-daily #daily-info{font-size:10px;color:#666;line-height:1.3;margin:2px 0 0}
+@media(min-width:450px){
+#compressor-daily .daily-cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+#compressor-daily .daily-card{flex-direction:column;justify-content:center;text-align:center;padding:3px 4px}
+}

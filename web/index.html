@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<link rel="apple-touch-icon" href="varmepumpe-icon.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Varmepumpe</title>
+  <link rel="icon" type="image/png" href="/varmepumpe-icon.png">
+<style>
+body{font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:18px;color:#222}
+.box{max-width:500px;margin:auto}
+h1{text-align:center;font-size:26px}
+.status{background:white;border-radius:16px;padding:20px;margin-bottom:12px;text-align:center}
+.status b{display:block;font-size:15px;color:#666;margin-bottom:7px}
+.status span{font-size:32px;font-weight:bold}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:white;border-radius:14px;padding:15px;text-align:center}
+.card b{display:block;color:#666;font-size:14px;margin-bottom:6px}
+.card span{font-size:21px;font-weight:bold}
+button{width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;font-size:17px}
+#controls{max-width:360px;margin-left:auto;margin-right:auto;}
+#controls button{width:100%;}
+.container{max-width:300px!important;}
+.grid{max-width:300px!important;}
+#controls{max-width:300px!important;}
+.card{padding:12px!important;}
+.status{padding:12px!important;min-height:0!important;}
+.status h2,.status h3,.status p{margin:4px!important;}
+
+#home-back{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:10px 14px;margin-bottom:8px;border-radius:12px;background:#fff;color:#14532d;text-decoration:none;font-size:15px;font-weight:bold;box-shadow:0 1px 4px #0001}
+#home-back:focus-visible{outline:3px solid #2e7d32;outline-offset:3px}
+
+</style>
+<link rel="stylesheet" href="mobil.css?v=20261014-1">
+<style>#summer-profile p{font-size:14px;line-height:1.55}#summer-profile .summer-note{color:#555;font-size:13px}#summer-profile button.selected{background:#c8e6c9;outline:3px solid #2e7d32;font-weight:bold}#summer-profile button:disabled{opacity:.6}#summer-status{min-height:24px}</style><link rel="stylesheet" href="compressor-daily.css?v=20261022-3">
+<script src="/client.js" defer></script></head>
+<body>
+<div class="box">
+
+
+<div style="text-align:right;margin-bottom:12px"><select id="language" style="padding:10px;border-radius:8px;font-size:15px"><option value="no">🇳🇴 Norsk</option><option value="de">🇩🇪 Deutsch</option><option value="en">🇬🇧 English</option></select></div>
+<h1 data-i18n="title">🔥 Varmepumpe Fujitsu</h1>
+<button onclick="location.reload()" style="max-width:300px;display:block;margin:0 auto 12px auto" data-i18n="refresh">🔄 Oppdater</button>
+
+<div class="status-row">
+<div class="status"><b data-i18n="compressor">Kompressor</b><span id="komp">--</span></div>
+<div class="status" id="feilbox"><b data-i18n="status">Varmepumpestatus</b><span id="feil">--</span></div>
+</div>
+
+<section id="compressor-daily" aria-labelledby="daily-heading">
+<h2 id="daily-heading" data-daily-text="title"></h2>
+<div class="daily-cards">
+<div class="daily-card"><span data-daily-text="starts"></span><strong id="daily-starts">—</strong></div>
+<div class="daily-card"><span data-daily-text="stops"></span><strong id="daily-stops">—</strong></div>
+<div class="daily-card"><span data-daily-text="yesterday"></span><strong id="daily-yesterday">—</strong></div>
+<div class="daily-card"><span data-daily-text="average"></span><strong id="daily-average">—</strong></div>
+</div>
+<details><summary data-daily-text="details"></summary><p class="daily-note" data-daily-text="note"></p></details>
+<p id="daily-info" role="status" aria-live="polite"></p>
+</section>
+<div class="mode-overview"><div id="aktivmodus" style="font-weight:bold;">Aktiv modus: Leser...</div></div>
+
+<div class="grid">
+<div class="card"><b data-i18n="flow">Tur</b><span id="tur">--</span></div>
+<div class="card"><b data-i18n="return">Retur</b><span id="retur">--</span></div>
+<div class="card"><b data-i18n="setpoint">Settpunkt</b><span id="sett">--</span></div>
+<div class="card"><b data-i18n="room">Stuetemperatur</b><span id="stue">--</span></div>
+<div class="card"><b data-i18n="tank">Tanktemperatur</b><span id="tank">--</span></div>
+<div class="card"><b data-i18n="outdoor">Utetemperatur</b><span id="ute">--</span></div>
+<div class="card"><b data-i18n="starts">Starter</b><span id="starter">--</span></div>
+<div class="card"><b data-i18n="modulation">Modulering</b><span id="mod">--</span></div>
+</div>
+
+<div id="tempcontrol" style="text-align:center;margin:18px auto;max-width:270px"><h2 data-i18n="desired">Ønsket romtemperatur</h2><div style="display:flex;align-items:center;justify-content:center;gap:18px"><button onclick="changeTemp(-0.1)">−</button><b id="roomtemp" style="font-size:24px;white-space:nowrap">--.- °C</b><button onclick="changeTemp(0.1)">+</button></div></div>
+<details class="settings" id="settings-panel">
+<summary><span data-i18n="settings">⚙️ Innstillinger</span></summary>
+<div class="settings-content">
+<div id="controls"><h2 data-i18n="mode">Driftsmodus</h2><button id="mode1" onclick="setMode(1)" data-i18n="auto">Auto</button> <button id="mode3" onclick="setMode(3)" data-i18n="comfort">Komfort</button> <button id="mode2" onclick="setMode(2)" data-i18n="reduced">Redusert</button> <button id="mode0" onclick="setMode(0)" data-i18n="protection">Frostsikring</button></div>
+
+<section id="summer-profile" style="max-width:300px;margin:18px auto;padding:15px;box-sizing:border-box;background:white;border-radius:14px;text-align:center">
+<h2 data-summer-text="title"></h2><p data-summer-text="schedule"></p><p class="summer-note" data-summer-text="note"></p>
+<button id="summer-apply" type="button" data-summer-text="apply" aria-pressed="false" disabled></button><button id="summer-restore" type="button" data-summer-text="restore" hidden disabled></button>
+<p id="summer-status" role="status" aria-live="polite"></p>
+</section>
+<div id="holiday" style="max-width:300px;margin:18px auto;text-align:center;background:white;border-radius:14px;padding:12px;box-sizing:border-box">
+<div id="pausecontrol" style="text-align:center;margin:18px auto;max-width:270px">
+<h2 data-auto-pause-text="title"></h2>
+<p id="auto-pause-value" style="font-size:18px;font-weight:bold;margin:8px 0">—</p>
+<p data-auto-pause-text="rule" style="font-size:13px;line-height:1.5;margin:8px 0"></p>
+<p id="auto-pause-state" role="status" aria-live="polite" style="font-size:13px;line-height:1.5;color:#34513b"></p>
+<p data-auto-pause-text="note" style="font-size:12px;line-height:1.45;color:#666"></p>
+</div>
+<div style="text-align:center;margin:18px auto;max-width:270px"><h2 data-i18n="dhw">🚿 Varmtvann</h2><button id="dhwButton" style="width:100%;padding:14px;font-size:16px;font-weight:bold" onclick="fetch('/bsb/S10019=1',{mode:'no-cors'});this.textContent='✓ Varmtvannsoppvarming startet';setTimeout(()=>this.textContent='🚿 Varm opp tappevann nå',5000)">🚿 Varm opp tappevann nå</button></div>
+<section id="holiday-profile">
+<h2 data-profile-text="holidayTitle"></h2>
+<p data-profile-text="holidayNote" style="font-size:14px;line-height:1.5"></p>
+<label for="holidaySeason" data-profile-text="seasonLabel"></label>
+<select id="holidaySeason" style="width:100%;padding:12px;font-size:16px;border-radius:10px;margin:6px 0 12px"><option value="summer" data-profile-text="summerHoliday"></option><option value="winter" data-profile-text="winterHoliday"></option></select>
+<p id="holiday-level" style="font-size:14px;line-height:1.5"></p>
+<label for="holidayStart" data-profile-text="departureLabel"></label>
+<input type="date" id="holidayStart" style="width:100%;box-sizing:border-box;padding:12px;margin:6px 0 12px;font-size:17px;border-radius:10px;border:1px solid #bbb">
+<label for="holidayEnd" data-profile-text="returnLabel"></label>
+<input type="date" id="holidayEnd" style="width:100%;box-sizing:border-box;padding:12px;margin:6px 0 4px;font-size:17px;border-radius:10px;border:1px solid #bbb">
+<button id="holidayOn" data-profile-text="holidayOn" disabled></button>
+<button id="holidayOff" data-profile-text="holidayOff" disabled></button>
+<p id="holiday-status" role="status" aria-live="polite" style="font-weight:bold;font-size:14px;line-height:1.5"></p>
+</section>
+</div>
+</div>
+</details>
+<nav class="history-nav">
+<button onclick="location.href='kurver.html'" data-i18n="graphs">📈 Temperaturkurver</button>
+<button onclick="location.href='logg.html'" data-i18n="logs">Vis hele loggen</button>
+<button onclick="location.href='feil.html'" data-i18n="errors">Vis feilhistorikk</button>
+</nav>
+</div>
+
+<script>
+function setMode(m){for(let i=0;i<4;i++){let b=document.getElementById("mode"+i);if(b){b.style.background=(i==m)?"#c8e6c9":"";b.style.outline=(i==m)?"3px solid #2e7d32":"none";b.style.fontWeight=(i==m)?"bold":"normal";}}let n=["Standby / Frostsikring","Auto","Reduced","Comfort"][m]; fetch("/bsb/S700="+m,{mode:"no-cors"}); alert("Driftsmodus satt til "+n);}
+async function changeTemp(d){let n=Math.round((parseFloat(document.getElementById("roomtemp").textContent)+d)*10)/10;if(n<18||n>28)return;fetch("/bsb/S710="+n.toFixed(1),{mode:"no-cors"});document.getElementById("roomtemp").textContent=n.toFixed(1)+" C";}
+async function update(){
+try{let j=await fetch("mode.json?"+Date.now()).then(r=>r.json());let m=j["700"];for(let i=0;i<4;i++){let b=document.getElementById("mode"+i);if(b){b.style.fontWeight=(i==m.value)?"bold":"normal";b.style.outline=(i==m.value)?"3px solid #2e7d32":"none";b.style.background=(i==m.value)?"#c8e6c9":"";}}let navn={"Automatic":"Auto","Comfort":"Comfort","Reduced":"Redusert","Protection":"Frostsikring"};document.getElementById("aktivmodus").textContent="Aktiv modus: "+(navn[m.desc]||m.desc);}catch(e){}
+ let t=await fetch('/cgi-bin/heatpump-latest?'+Date.now()).then(r=>r.text());
+ let a=t.trim().split('\n');
+ let s=a[a.length-1];
+ function v(n){let m=s.match(new RegExp(n+':\\s*([^|]+)'));return m?m[1].trim():'--'}
+ document.getElementById('feil').textContent=(v('Feil')==='0')?'Ingen feil':'Feil '+v('Feil')+' - '+v('Feiltekst').replace(/^[^:]*:/,''); let fb=document.getElementById('feilbox'); fb.style.background=(v('Feil')==='0')?'#c8e6c9':'#ffcdd2'; fb.style.border=(v('Feil')==='0')?'2px solid #2e7d32':'2px solid #c62828';
+ document.getElementById('komp').textContent=v('Kompressor');
+  let kb=document.getElementById('komp').closest('.status'); let kp=v('Kompressor'); kb.style.background=(kp==='På')?'#c8e6c9':'#ffcdd2'; kb.style.border=(kp==='På')?'2px solid #2e7d32':'2px solid #c62828';
+ document.getElementById('tur').textContent=v('Turtemp');
+ document.getElementById('retur').textContent=v('Returtemp');
+document.getElementById("stue").textContent=v("Stuetemperatur");
+ document.getElementById('sett').textContent=v('Settpunkt');
+ document.getElementById('ute').textContent=v('Utetemperatur');
+document.getElementById('tank').textContent=v('Tanktemperatur');
+ document.getElementById('mod').textContent=v('Modulering');
+ document.getElementById('roomtemp').textContent=v('Ønsket romtemperatur');
+ document.getElementById('starter').textContent=v('Kompressorstarter');
+}
+const oppdaterOriginal = update; update = async function() { await oppdaterOriginal(); setTimeout(()=>{if(typeof oversettSide==="function")oversettSide();},1500); };
+async function updateDHW(){try{let d=await fetch("dhw.json?"+Date.now()).then(r=>r.json());let b=document.getElementById("dhwButton");if(d["10018"].value==="01001111"){b.textContent="🔥 Varmer tappevann";}else{b.textContent="🚿 Varm opp tappevann nå";}}catch(e){}}
+update();
+updateDHW();
+setInterval(updateDHW,30000);
+setInterval(update,30000);
+</script>
+<div class="page-footer" style="text-align:center;margin:28px auto 10px;color:#777;font-size:13px;line-height:1.6"><span data-i18n="footer">Styring av varmepumpe Fujitsu Waterstage</span><br><b data-i18n="author">Bygget av Hansen IT Support</b></div>
+<script src="sprak.js?v=20261019-pause1" charset="UTF-8"></script>
+<script src="summer.js?v=20261021-3"></script>
+<script src="compressor-daily.js?v=20261022-2"></script>
+<script src="auto-pause.js?v=20261022-1"></script>
+<footer style="text-align:center;padding:18px;font:12px system-ui;color:#667">Bygget av Hansen IT Support</footer></body>
+</html>
+
+
+

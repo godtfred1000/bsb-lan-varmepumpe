@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kompressorlogg</title>
+
+<style>
+body{
+  font-family:Arial,sans-serif;
+  background:#f3f4f6;
+  margin:0;
+  padding:12px;
+  color:#222;
+}
+.box{
+  max-width:850px;
+  margin:auto;
+}
+h1{
+  text-align:center;
+  font-size:25px;
+}
+.back,.all{
+  display:block;
+  padding:14px;
+  margin-bottom:12px;
+  border:0;
+  border-radius:12px;
+  text-align:center;
+  font-size:17px;
+  font-weight:bold;
+  width:100%;
+  box-sizing:border-box;
+}
+.back{
+  background:#2e7d32;
+  color:white;
+  text-decoration:none;
+}
+.all{
+  background:#ddd;
+  color:#222;
+}
+.date{
+  font-size:20px;
+  font-weight:bold;
+  margin:20px 4px 8px;
+}
+.event{
+  background:white;
+  border-radius:12px;
+  padding:12px;
+  margin-bottom:8px;
+}
+.start{
+  border-left:7px solid #2e7d32;
+}
+.stop{
+  border-left:7px solid #c62828;
+}
+.error{
+  background:#ffcdd2;
+}
+.title{
+  font-size:17px;
+  font-weight:bold;
+}
+.duration{
+  margin-top:6px;
+  font-weight:bold;
+}
+.values{
+  margin-top:7px;
+  font-size:15px;
+}
+</style>
+<script src="undersider-sprak.js?v=20261018-element1"></script>
+<script src="/client.js" defer></script></head>
+
+<body>
+<div class="box">
+
+<a class="back" href="/">← Tilbake til Varmepumpe</a>
+
+<h1>⚙️ Kompressorlogg</h1>
+
+<button class="all" onclick="toggleAll()">Vis alle målinger</button>
+
+<section id="heater-summary"></section>
+<div id="events">Laster logg...</div>
+<div id="all" style="display:none"></div>
+
+</div>
+
+<script>
+let rawLines=[];
+
+function value(line,name){
+  const m=line.match(new RegExp(name+":\\s*([^|]+)"));
+  return m ? m[1].trim() : "---";
+}
+
+function details(line){
+  let tur=value(line,"Turtemp").replace(" C","");
+  let ret=value(line,"Returtemp").replace(" C","");
+  let sett=value(line,"Settpunkt").replace(" C","");
+  let tank=value(line,"Tanktemperatur").replace(" C","");
+  let stue=value(line,"Stuetemperatur").replace(" C","");
+  let ute=value(line,"Utetemperatur").replace(" C","");
+  let mod=value(line,"Modulering").replace(" %","");
+
+  return "Tur <b>"+tur+"°</b> · Retur <b>"+ret+"°</b> · Sett <b>"+sett+
+         "°</b> · Stue <b>"+stue+"°</b> · Ute <b>"+ute+"°</b> · Tank <b>"+tank+"°</b> · Mod <b>"+mod+"%</b>";
+}
+
+function secondsBetween(a,b){
+  let x=new Date(a.replace(" ","T"));
+  let y=new Date(b.replace(" ","T"));
+  return Math.round((y-x)/1000);
+}
+
+function duration(sec){
+  if(!isFinite(sec) || sec<0) return "";
+
+  let h=Math.floor(sec/3600);
+  let m=Math.floor((sec%3600)/60);
+  let s=sec%60;
+
+  if(h>0) return h+" t "+m+" min";
+  if(m>0) return m+" min "+s+" sek";
+  return s+" sek";
+}
+
+let logLoading=false;
+async function loadLog(){
+  if(logLoading)return;
+  logLoading=true;
+  const followBottom=rawLines.length===0 || window.innerHeight+window.scrollY>=document.body.scrollHeight-100;
+  try {
+
+  const text=await fetch("bsb.log?"+Date.now()).then(r=>r.text());
+  rawLines=text.trim().split("\n").filter(x=>x.trim());
+
+  const heaters=heaterTracker();
+  let html="";
+  let lastState=null;
+  let startTime=null;
+  let stopTime=null;
+  let lastDate="";
+  let lastDefrost=false;
+  let defrostStart=null;
+  let dhwStart=null;
+  let lastDhwHeating=false;
+
+  for(let i=0;i<rawLines.length;i++){
+
+    const line=rawLines[i];
+    const ts=value(line,"Tidspunkt");
+    const state=value(line,"Kompressor");
+    const status=value(line,"Driftstatus");
+    const defrost=["125","192","193","194","195"].includes(status);
+    const feil=(line.match(/(?:^| |)Feil: ([^|]+)/)||[])[1]?.trim()||"---";
+
+    if(ts==="---") continue;
+
+    html+=heaters.sample(line,ts);
+
+    // DHW status 8003 kommer fra styringen. Gamle linjer uten status ignoreres.
+    const dhwCode=value(line,"DHWstatus");
+    const dhwText=value(line,"DHWtekst");
+    const dhwHeating=dhwCode!=="---" &&
+      /charging|heating|legionella|pasteur/i.test(dhwText) &&
+      !/charged|not charging|not heating/i.test(dhwText);
+    if(dhwCode!=="---"){
+      if(dhwHeating && !lastDhwHeating){
+        dhwStart=ts;
+        const day=ts.split(" ")[0];
+        if(day!==lastDate){html+='<div class="date">📅 '+day+'</div>';lastDate=day;}
+        html+='<div class="event start"><div class="title">🚿 '+ts.split(" ")[1]+' – Varmtvannsoppvarming startet</div><div class="values">'+details(line)+'</div></div>';
+      } else if(!dhwHeating && lastDhwHeating){
+        const d=dhwStart?duration(secondsBetween(dhwStart,ts)):"";
+        html+='<div class="event stop"><div class="title">✅ '+ts.split(" ")[1]+' – Varmtvannsoppvarming ferdig</div>'+(d?'<div class="duration">⏱ Varighet: '+d+'</div>':'')+'<div class="values">'+details(line)+'</div></div>';
+        dhwStart=null;
+      }
+      lastDhwHeating=dhwHeating;
+    }
+
+    if(lastState===null){
+      lastState=state;
+
+      if(state==="På"){
+        startTime=ts;
+      }else{
+        stopTime=ts;
+      }
+
+      continue;
+    }
+
+    if(status==="46" && lastDefrost){
+      const p=ts.split(" ");
+      const time=p[1];
+      const d=defrostStart ? duration(secondsBetween(defrostStart,ts)) : "";
+      html+='<div class="event stop"><div class="title">✅ '+time+' – Avriming ferdig</div>';
+      if(d) html+='<div class="duration">⏱ Varighet: '+d+'</div>';
+      html+='<div class="values">'+details(line)+'</div></div>';
+      defrostStart=null;
+    }
+    if(defrost && !lastDefrost){
+      const p=ts.split(" ");
+      const date=p[0];
+      const time=p[1];
+      if(date!==lastDate){
+        html+='<div class="date">📅 '+date+'</div>';
+        lastDate=date;
+      }
+      html+='<div class="event start"><div class="title">❄️ '+time+' – Avriming startet</div><div class="values">'+details(line)+'</div></div>';
+      defrostStart=ts;
+    }
+    lastDefrost=defrost;
+    // Filtrer korte statusfall uten økning i kompressorens startteller.
+    let kortStatusfall=false;
+    if(lastState==="På" && state==="Av"){
+      const tellerFør=value(rawLines[i-1],"Kompressorstarter");
+      const tellerNå=value(line,"Kompressorstarter");
+      if(tellerFør!=="---" && tellerFør===tellerNå){
+        for(let j=i+1;j<rawLines.length;j++){
+          const nesteTid=value(rawLines[j],"Tidspunkt");
+          const sek=secondsBetween(ts,nesteTid);
+          if(!isFinite(sek) || sek>120) break;
+          if(value(rawLines[j],"Kompressorstarter")!==tellerFør) break;
+          if(value(rawLines[j],"Kompressor")==="På"){
+            kortStatusfall=true;
+            break;
+          }
+        }
+      }
+    }
+    if(kortStatusfall) continue;
+    if(state!==lastState){
+
+      const p=ts.split(" ");
+      const date=p[0];
+      const time=p[1];
+
+      if(date!==lastDate){
+        html+='<div class="date">📅 '+date+'</div>';
+        lastDate=date;
+      }
+
+      if(state==="På"){
+
+        html+='<div class="event start">';
+        html+='<div class="title">🟢 '+time+' – Kompressor startet</div>';
+
+        if(stopTime){
+          const pause=duration(secondsBetween(stopTime,ts));
+          if(pause){
+            html+='<div class="duration">⏸️ Pausetid: '+pause+'</div>';
+          }
+        }
+
+        html+='<div class="values">'+details(line)+'</div>';
+        html+='</div>';
+
+        startTime=ts;
+        stopTime=null;
+
+      }else{
+
+        const run=startTime
+          ? duration(secondsBetween(startTime,ts))
+          : "";
+
+        html+='<div class="event stop">';
+        html+='<div class="title">🔴 '+time+' – Kompressor stoppet</div>';
+
+        if(run){
+          html+='<div class="duration">⏱️ Kjøretid: '+run+'</div>';
+        }
+
+        html+='<div class="values">'+details(line)+'</div>';
+        html+='</div>';
+
+        stopTime=ts;
+        startTime=null;
+      }
+
+      lastState=state;
+    }
+
+    if(feil!=="0" && feil!=="---"){
+      html+='<div class="event error"><b>⚠️ '+ts+
+            ' – Feil '+feil+'</b></div>';
+    }
+  }
+
+  document.getElementById("events").innerHTML=
+    html || "Ingen start/stopp-hendelser funnet.";
+
+  document.getElementById("heater-summary").innerHTML=heaters.summary();
+  makeAll();
+  if(followBottom)window.scrollTo(0,document.body.scrollHeight);
+  } catch(error) {
+    if(!rawLines.length)document.getElementById("events").textContent="Kunne ikke lese loggen.";
+    console.error(error);
+  } finally {logLoading=false;}
+}
+
+function makeAll(){
+
+  let html="";
+
+  for(const line of rawLines){
+
+    const ts=value(line,"Tidspunkt");
+    const state=value(line,"Kompressor");
+    const status=value(line,"Driftstatus");
+    const defrost=["125","192","193","194","195"].includes(status);
+
+    if(ts==="---") continue;
+
+    html+='<div class="event '+(state==="På"?"start":"stop")+'">';
+    html+='<b>'+ts+' '+(state==="På"?"🟢 PÅ":"🔴 AV")+'</b>';
+    html+='<div class="values">'+details(line)+heaterDetails(line)+'</div>';
+    html+='</div>';
+  }
+
+  document.getElementById("all").innerHTML=html;
+}
+
+function toggleAll(){
+
+  const e=document.getElementById("events");
+  const a=document.getElementById("all");
+  const b=document.querySelector(".all");
+
+  if(a.style.display==="none"){
+    e.style.display="none";
+    a.style.display="block";
+    b.textContent="Vis bare start/stopp";
+  }else{
+    a.style.display="none";
+    e.style.display="block";
+    b.textContent="Vis alle målinger";
+  }
+}
+
+// Heater accounting uses observed intervals only. No pump commands are issued.
+function heaterTracker(){
+  const units=[1,2].map(id=>({id,previous:null,run:null,totalSeconds:0,totalKWh:0,missingPower:false,seen:false}));
+  const number=(line,key)=>{const v=value(line,key);return /^\d+(\.\d+)?$/.test(v)?Number(v):null;};
+  const card=(u,ts,title,body='',kind='start')=>'<div class="event heater '+kind+'"><div class="title">⚡ '+ts+' – Varmeelement '+u.id+' '+title+'</div>'+body+'</div>';
+  function stats(run){
+    return '<div class="duration">Registrert driftstid: '+duration(run.seconds)+'</div><div class="values">Strømforbruk (estimat): '+(run.missingPower?'Ukjent effekt':run.kwh.toFixed(3)+' kWh')+'</div>'+(run.partial?'<div class="values">Ufullstendig periode – bare observerte intervaller er med.</div>':'');
+  }
+  return {
+    sample(line,ts){
+      let html='';const time=+new Date(ts.replace(' ','T'));if(!Number.isFinite(time))return html;
+      for(const u of units){
+        const raw=value(line,'Elvarme'+u.id), state=raw==='1'?1:raw==='0'?0:null;
+        const kw=number(line,'Elvarme'+u.id+'kW');
+        const prev=u.previous,dt=prev?(time-prev.time)/1000:0;
+        // A gap or unknown sample breaks continuity, not a confirmed stop.
+        const continuous=prev&&dt>0&&dt<=120&&state!==null;
+        if(u.run&&continuous&&prev.state===1){
+          u.run.seconds+=dt;u.totalSeconds+=dt;
+          if(prev.kw===null){u.run.missingPower=true;u.missingPower=true;}
+          else{const energy=prev.kw*dt/3600;u.run.kwh+=energy;u.totalKWh+=energy;}
+        }
+        if(u.run&&!continuous){
+          u.run.partial=true;
+          html+=card(u,ts,'måling avbrutt',stats(u.run),'stop');u.run=null;
+        }
+        if(state===1&&!u.run){
+          const partial=!continuous;
+          u.run={seconds:0,kwh:0,missingPower:false,partial};
+          html+=card(u,ts,partial?'aktiv ved første sikre måling':'startet', '<div class="values">Konfigurert effekt: '+(kw===null?'Ukjent effekt':kw.toFixed(1)+' kW')+'</div>');
+        }else if(state===0&&u.run){
+          html+=card(u,ts,'stoppet',stats(u.run),'stop');u.run=null;
+        }
+        if(state!==null)u.seen=true;
+        u.previous=state===null?null:{time,state,kw,ts};
+      }
+      return html;
+    },
+    summary(){
+      let html='<h2>Elektriske varmeelementer</h2><p>Strømforbruket er et estimat fra konfigurert effekt og registrert driftstid, ikke en strømmåling. Intervaller over 120 sekunder og manglende status utelates. Korte innkoblinger mellom målinger kan mangle.</p>';
+      for(const u of units){
+        html+='<div class="event heater"><div class="title">Varmeelement '+u.id+'</div>';
+        if(!u.seen)html+='<div class="values">Ingen registrerte elementmålinger ennå.</div>';
+        else{
+          html+='<div class="values">Status ved siste måling: '+(!u.previous?'Ukjent':u.previous.state===1?'PÅ':'AV')+'</div>';
+          if(u.previous)html+='<div class="values">Siste måling: '+u.previous.ts+'</div>';
+          html+='<div class="duration">Samlet registrert driftstid: '+duration(u.totalSeconds)+'</div><div class="values">Samlet strømforbruk (estimat): '+u.totalKWh.toFixed(3)+' kWh'+(u.missingPower?' · Ufullstendig – effekt mangler for deler av perioden.':'')+'</div>';
+          if(u.run)html+='<div class="values">Aktiv periode ved siste måling</div>'+stats(u.run);
+        }
+        html+='</div>';
+      }
+      return html;
+    }
+  };
+}
+function heaterDetails(line){
+  return [1,2].map(id=>{
+    const state=value(line,'Elvarme'+id);
+    if(state==='---')return '';
+    return ' · Varmeelement '+id+': <b>'+(state==='1'?'PÅ':state==='0'?'AV':'Ukjent')+'</b>';
+  }).join('');
+}
+
+loadLog();
+setInterval(loadLog,30000);
+</script>
+
+<a class="back" href="/">← Tilbake til Varmepumpe</a>
+<footer style="text-align:center;padding:18px;font:12px system-ui;color:#667">Bygget av Hansen IT Support</footer></body>
+</html>
